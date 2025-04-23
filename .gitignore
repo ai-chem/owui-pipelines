@@ -10,3 +10,7 @@ wheels/
 .venv
 !example.env
 *.env
+
+valves.json
+failed
+.idea

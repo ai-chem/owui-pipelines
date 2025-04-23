@@ -1,6 +1,5 @@
 import enum
-from typing import Optional, Literal
-
+from typing import Optional
 from pydantic import (
     BaseModel,
     ValidationError,
@@ -44,16 +43,3 @@ class QueryCategory(str, enum.Enum):
 class CategorizationResult(BaseModel):
     category: QueryCategory
     content: str | list[dict[str, str | float | int | None]]
-
-
-class LLMProviderEnum(enum.Enum, str):
-    GOOGLE = "GOOGLE"
-
-
-class LLMProvideAPI(enum.Enum, str):
-    GOOGLE = "{base_url}/google/v1beta/openai/"
-
-
-class Message(BaseModel):
-    role: Literal["user", "system"]
-    content: str
