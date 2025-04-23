@@ -3,11 +3,11 @@ from typing import Literal
 from pydantic import BaseModel
 
 
-class LLMProviderEnum(enum.Enum, str):
+class LLMProviderEnum(str, enum.Enum):
     GOOGLE = "GOOGLE"
 
 
-class LLMProvideAPI(enum.Enum, str):
+class LLMProvideAPI(str, enum.Enum):
     GOOGLE = "{base_url}/google/v1beta/openai/"
 
 

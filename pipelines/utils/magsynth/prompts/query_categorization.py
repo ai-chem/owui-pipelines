@@ -39,6 +39,7 @@ output format:
 }
 
 Stick to output json format specified above. Do not insert any textual comments.
+For properties category return json string in the content field, please.
 """
 
 query_prompt = """

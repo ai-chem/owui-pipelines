@@ -1,24 +1,28 @@
 import os
+import asyncio
 from typing import Optional
 
 import torch
+import dotenv
 from loguru import logger
 from openai import OpenAI
 from pydantic import BaseModel
 from elasticsearch import Elasticsearch
 from sentence_transformers import SentenceTransformer
 
-from backend.src.pipeline.schemas import QueryCategory
-from utils.core.schemas import Message
-from utils.magsynth.schemas import (
+from pipelines.utils.core.schemas import Message
+from pipelines.utils.magsynth.schemas import (
     CategorizationResult,
     PropertiesFilter,
     PropertiesFilterMode,
+    QueryCategory
 )
-from utils.magsynth.prompts import (
+from pipelines.utils.magsynth.prompts import (
     query_categorization,
     general_query_answer,
 )
+
+dotenv.load_dotenv('magsynth-dev.env')
 
 
 class Pipeline:
@@ -40,10 +44,10 @@ class Pipeline:
             **{
                 "GOOGLE_AI_API": os.getenv("GOOGLE_AI_API"),
                 "GOOGLE_AI_API_KEY": os.getenv("GOOGLE_AI_API_KEY"),
-                "QUERY_CATEGORIZATION_MODEL_ID": os.getenv("QUERY_CATEGORIZATION_MODEL_ID", "gemini-flash-2.0"),
-                "GENERAL_QUERY_MODEL_ID": os.getenv("GENERAL_QUERY_MODEL_ID", "gemini-flash-2.0"),
-                "SYNTHESIS_QUERY_MODEL_ID": os.getenv("SYNTHESIS_QUERY_MODEL_ID", "gemini-flash-2.0"),
-                "PROPERTIES_QUERY_MODEL_ID": os.getenv("PROPERTIES_QUERY_MODEL_ID", "gemini-flash-2.0"),
+                "QUERY_CATEGORIZATION_MODEL_ID": os.getenv("QUERY_CATEGORIZATION_MODEL_ID", "gemini-2.0-flash"),
+                "GENERAL_QUERY_MODEL_ID": os.getenv("GENERAL_QUERY_MODEL_ID", "gemini-2.0-flash"),
+                "SYNTHESIS_QUERY_MODEL_ID": os.getenv("SYNTHESIS_QUERY_MODEL_ID", "gemini-2.0-flash"),
+                "PROPERTIES_QUERY_MODEL_ID": os.getenv("PROPERTIES_QUERY_MODEL_ID", "gemini-2.0-flash"),
                 "EMBEDDING_MODEL_ID": os.getenv("EMBEDDING_MODEL_ID", "thenlper/gte-large"),
                 "EMBEDDING_DIMENSIONS": int(os.getenv("EMBEDDING_DIMENSIONS", 1024)),
                 "ES_HOST": os.getenv("ES_HOST"),
@@ -52,9 +56,10 @@ class Pipeline:
             }
         )
 
-    async def __connect_to_es(self) -> None:
+        self.openai_client: OpenAI | None = None
         self.es_client: Elasticsearch | None = None
 
+    def __connect_to_es(self) -> None:
         if self.valves.ES_HOST is None:
             logger.error(f"Elasticsearch host not set")
             return
@@ -64,8 +69,8 @@ class Pipeline:
             return
 
         self.es_client = Elasticsearch(
-            hosts=[os.environ["ES_HOST"]],
-            api_key=os.environ["ES_API_KEY"],
+            hosts=[self.valves.ES_HOST],
+            api_key=self.valves.ES_API_KEY,
         )
         try:
             info = self.es_client.info()
@@ -74,7 +79,15 @@ class Pipeline:
             err_text = str(e)
             logger.error("Cannot connect to ES cluster:" + err_text)
 
-    async def __connect_to_openai(self):
+    def __connect_to_openai(self):
+        if self.valves.GOOGLE_AI_API is None:
+            logger.error(f"OpenAI API URL not set")
+            return
+
+        if self.valves.GOOGLE_AI_API_KEY is None:
+            logger.error(f"OpenAI API key not set")
+            return
+
         self.openai_client = OpenAI(
             base_url=self.valves.GOOGLE_AI_API,
             api_key=self.valves.GOOGLE_AI_API_KEY,
@@ -82,6 +95,23 @@ class Pipeline:
 
     async def __setup_embedding_model(self):
         self.embedding_model = SentenceTransformer(self.valves.EMBEDDING_MODEL_ID)
+
+    def __check_connections(self) -> bool:
+        if self.openai_client is None:
+            self.__connect_to_openai()
+
+        if self.openai_client is None:
+            logger.error("Cannot connect to OpenAI")
+            return False
+
+        if self.es_client is None:
+            self.__connect_to_es()
+
+        if self.es_client is None:
+            logger.error("Cannot connect to Elasticsearch")
+            return False
+
+        return True
 
     def __get_text_embedding(self, text: str) -> list[float]:
         if not text.strip():
@@ -91,12 +121,6 @@ class Pipeline:
         return embedding.tolist()
 
     def __vector_search_by_query(self, query: str) -> list[dict[str, str | float]]:
-        if self.es_client is None:
-            self.__connect_to_es()
-
-        if self.es_client is None:
-            raise RuntimeError("Cannot connect to Elasticsearch")
-
         question = self.__get_text_embedding(query)
         body = {
             "size": 5,
@@ -118,12 +142,6 @@ class Pipeline:
         return res
 
     def __vector_search_by_properties(self, properties: list[PropertiesFilter]) -> list[dict[str, str | int | float]]:
-        if self.es_client is None:
-            self.__connect_to_es()
-
-        if self.es_client is None:
-            raise RuntimeError("Cannot connect to Elasticsearch")
-
         properties_filter = []
         for prop in properties:
             prop_filter = {
@@ -159,7 +177,7 @@ class Pipeline:
                 {k: v for k, v in item["_source"].items() if k != "embedding"})
         return res
 
-    def __categorize_message(self, user_message: str) -> CategorizationResult:
+    def __categorize_message(self, user_message: str) -> CategorizationResult | None:
         completion = self.openai_client.beta.chat.completions.parse(
             model=self.valves.QUERY_CATEGORIZATION_MODEL_ID,
             messages=[
@@ -190,9 +208,9 @@ class Pipeline:
             messages=local_messages,
         )
 
-        return response
+        return response.choices[0].message.content
 
-    def __answer_synthesis_query(self, query: str, messages: list[dict]):
+    def __answer_synthesis_query(self, query: str, messages: list[dict]) -> None:
         system_message = Message(
             role="system",
             content=general_query_answer.system_prompt,
@@ -216,7 +234,7 @@ class Pipeline:
             messages=local_messages,
         )
 
-        return response
+        return response.choices[0].message.content
 
     def __answer_properties_query(
             self,
@@ -248,12 +266,12 @@ class Pipeline:
             messages=local_messages,
         )
 
-        return response
+        return response.choices[0].message.content
 
     async def on_startup(self):
-        await self.__connect_to_openai()
-        await self.__connect_to_es()
         await self.__setup_embedding_model()
+        self.__connect_to_openai()
+        self.__connect_to_es()
 
     async def on_shutdown(self):
         self.openai_client.close()
@@ -262,6 +280,10 @@ class Pipeline:
         torch.cuda.empty_cache()
 
     def pipe(self, user_message, model_id, messages, body):
+        all_connected = self.__check_connections()
+        if not all_connected:
+            return "Cannot answer the message due to connection errors. Reach the administator for help."
+
         message_category = self.__categorize_message(user_message)
         match message_category.category:
             case QueryCategory.general:
@@ -271,8 +293,24 @@ class Pipeline:
             case QueryCategory.properties:
                 return self.__answer_properties_query(
                     user_message,
-                    message_category.content,
+                    message_category.get_transformed_content(),
                     messages,
                 )
             case _:
                 return "Unknown message category: " + message_category.category.value
+
+async def main():
+    pipeline = Pipeline()
+    await pipeline.on_startup()
+    response = await pipeline.pipe(
+        "What is the saturation magnetization parameter of the LiFePO4?",
+        "gemini-2.0-flash",
+        [],
+        {},
+    )
+    print(response)
+    await pipeline.on_shutdown()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
