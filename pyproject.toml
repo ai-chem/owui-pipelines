@@ -5,10 +5,12 @@ description = "Pipelines for Open WebUI"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "catboost>=1.2.8",
     "elasticsearch==8.17.0",
     "httpx>=0.28.1",
     "loguru>=0.7.3",
     "openai>=1.75.0",
+    "pandas>=2.2.3",
     "pydantic>=2.11.3",
     "python-dotenv>=1.1.0",
     "requests>=2.32.3",

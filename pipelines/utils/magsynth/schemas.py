@@ -30,7 +30,7 @@ class PropertiesFilter(BaseModel):
         elif 'greater_than' in set_keys:
             self['mode'] = PropertiesFilterMode.gt
         else:
-            raise ValidationError('At least one filter bound must be set')
+            raise AssertionError('At least one filter bound must be set')
         return self
 
 
