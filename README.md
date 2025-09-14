@@ -7,8 +7,8 @@
 ## Project structure
 
 ```bash
-├── Dockerfile                                  # here all pipelines should be defined
-├── pipelines 
+├── Dockerfile                                  
+├── pipelines                                   # here all pipelines should be defined
 │   ├── example.env
 │   ├── magsynth_pipeline                       # automatically created by OpenWebUI
 │   │   └── valves.json
@@ -40,13 +40,13 @@ All dependencies are managed with the [uv](https://docs.astral.sh/uv/) dependenc
 1. Create `<pipeline_name>_pipeline.py` file inside the `pipelines` directory.
 2. Inside the file define your pipeline class and inherit it from the `AbstractPipeline` class.
 
-The `on_startup` method is here for loading all resources (such as HF models) and establishing connections to external 
-services.
+    The `on_startup` method is here for loading all resources (such as HF models) and establishing connections to external 
+    services.
 
-`on_shutdown` should be used for gently closing all connections and freeing resources if needed.
+    `on_shutdown` should be used for gently closing all connections and freeing resources if needed.
 
-The `pipe` method is the main messages entry point where all the processing logic must be implemented.
+    The `pipe` method is the main messages entry point where all the processing logic must be implemented.
 
-You may define any number of methods you want.
+    You may define any number of methods you want.
 
 3. Build the project with Docker.
