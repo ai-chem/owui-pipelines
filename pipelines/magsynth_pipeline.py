@@ -352,7 +352,7 @@ async def main():
     pipeline = Pipeline()
     await pipeline.on_startup()
     response = pipeline.pipe(
-        "What is the saturation magnetization parameter of the LiFePO4?",
+        "What is the saturation magnetization of the LiFePO4?",
         "gemini-2.0-flash",
         [],
         {},

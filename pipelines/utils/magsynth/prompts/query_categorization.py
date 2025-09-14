@@ -12,14 +12,16 @@ output format:
 
 2. Question on synthesis
 description: specific question about magnetic materials synthesis. you must remember the query because you have to return it in the output,
-output format: 
+output format:
 {
     "category": "synthesis",
     "content": query you got as an input
 }
 
 3. Question on properties
-description: specific question about magnetic materials synthesis introducing concrete numerical limits of materials properties. you should extract property names and numerical bounds in order to be able to return them in the output.
+description: specific question about magnetic materials synthesis introducing concrete numerical limits of materials properties. 
+the query must contain numeric limits. if it does not, the query does not belong to this category. 
+you should extract property names and numerical bounds in order to be able to return them in the output.
 
 possible numerical parameters: 
 - saturation magnetization parameter. should be renamed to 'sat_em_g' in the output 
