@@ -6,6 +6,11 @@ from pydantic import (
     ValidationError,
     model_validator,
 )
+from .inference import (
+    CoercivityModel,
+    RemanenceModel,
+    SaturationModel,
+)
 
 
 class PropertiesFilterMode(str, enum.Enum):
@@ -53,3 +58,10 @@ class CategorizationResult(BaseModel):
 
     def get_transformed_content(self):
         return self.__transformed_content
+
+
+class SynthesisQueryAnswer(BaseModel):
+    agent_answer: str
+    coercivity: float 
+    remanence: float
+    saturation_magnetization: float
