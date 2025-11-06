@@ -1,9 +1,6 @@
 import os
 import dotenv
-loaded_dotenv = dotenv.load_dotenv('magsynth-dev.env')
-
-if not loaded_dotenv:
-    raise Exception("Environment variables are not set")
+dotenv.load_dotenv('magsynth-dev.env')
 
 import asyncio
 from typing import Optional
