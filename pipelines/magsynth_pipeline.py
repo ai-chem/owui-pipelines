@@ -256,16 +256,21 @@ class Pipeline:
 
         logger.info("answering synthesis query")
         
-        sample = db_examples[0]
+        if not db_examples:
+            predicted_coercivity = "-"
+            predicted_remanence = "-"
+            predicted_saturation = "-"
+        else:
+            sample = db_examples[0]
 
-        properties_df = pd.DataFrame([sample])
+            properties_df = pd.DataFrame([sample])
 
-        if 'Synthesis' in properties_df.columns:
-            properties_df.drop('Synthesis', axis=1, inplace=True)
+            if 'Synthesis' in properties_df.columns:
+                properties_df.drop('Synthesis', axis=1, inplace=True)
 
-        predicted_coercivity = self.models.coercivity.predict(properties_df)
-        predicted_remanence = self.models.remanence.predict(properties_df)
-        predicted_saturation = self.models.saturation.predict(properties_df)
+            predicted_coercivity = self.models.coercivity.predict(properties_df)
+            predicted_remanence = self.models.remanence.predict(properties_df)
+            predicted_saturation = self.models.saturation.predict(properties_df)
 
         text = f"""
         {response}
@@ -349,8 +354,8 @@ class Pipeline:
 async def main():
     pipeline = Pipeline()
     await pipeline.on_startup()
-    response = await pipeline.pipe(
-        "What is the saturation magnetization parameter of the LiFePO4?",
+    response = pipeline.pipe(
+        "How to synthesize LiFePO4 nanoparticles?",
         "gemini-2.0-flash",
         [],
         {},
